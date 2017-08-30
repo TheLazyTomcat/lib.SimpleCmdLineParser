@@ -78,6 +78,10 @@ Examples:
 *******************************************************************************}
 unit SimpleCmdLineParser;
 
+{$IF not(Defined(WINDOWS) or Defined(MSWINDOWS))}
+  {$MESSAGE FATAL 'Unsupported operating system.'}
+{$IFEND}
+
 {$TYPEINFO ON}
 
 interface
@@ -756,7 +760,9 @@ end;
 
 constructor TCLPParser.Create;
 begin
+{$WARN SYMBOL_PLATFORM OFF}
 Create(WinToStr(System.CmdLine));
+{$WARN SYMBOL_PLATFORM ON}
 end;
 
 //------------------------------------------------------------------------------
