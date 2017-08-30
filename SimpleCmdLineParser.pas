@@ -1,55 +1,89 @@
+{-------------------------------------------------------------------------------
+
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+-------------------------------------------------------------------------------}
+{===============================================================================
+
+  SimpleCmdLineParser
+
+  ©František Milt 2017-08-30
+
+  Version 1.0
+
+===============================================================================}
+{*******************************************************************************
+
+  In current implementation, three basic objects are parsed from the command
+  line - short command, long commad and general object.
+  If first parsed object is a general text, it is assumed to be the image path.
+
+-- Short command ---------------------------------------------------------------
+
+  - starts with a single command intro character
+  - exactly one character long
+  - only lower and upper case letters (a..z, A..Z)
+  - case sensitive (a is NOT the same as A)
+  - cannot be enclosed in quote chars
+  - can be compounded (several commands merged into one)
+  - can have arguments, first is separated by a white space, subsequent are
+    delimited by a delimiter character; in counpound commands, only the last
+    command can have an argument
+
+Examples:
+
+  -v                                  // simple command
+  -vbT                                // compound command (commands v, b and T)
+  -f file1.txt, "file 2.txt"          // simple with two arguments
+  -Tzf "file.dat"                     // compound, last command (f) with one argument
+
+-- Long command ----------------------------------------------------------------
+
+  - starts with two command intro characters
+  - length is not explicitly limited
+  - only lower and upper case letters (a..z, A..Z), numbers (0..9), underscore
+    (_) and dash (-)
+  - case insensitive
+  - cannot start with a dash
+  - cannot contain white-space characters
+  - cannot be enclosed in quote chars
+  - cannot be compounded
+  - can have arguments, first argument is separated by a white space, subsequent
+    are delimited by a delimiter character
+
+Examples:
+
+  --show_warnings                     // simple command
+  --input_file "file1.txt             // simple with one argument
+  --files "file1.dat", "files2.dat"   // simple with two arguments
+
+-- General ---------------------------------------------------------------------
+
+  - any text that is not a command or delimiter
+  - cannot contain whitespaces, delimiter, quotation or command intro character
+  - ...unless it is enclosed in quote chars
+  - to add one quote char, escape it with another one
+
+Examples:
+
+  this_is_simple_general_text
+  "quoted text with ""whitespaces"" and quote chars"
+  "special characters: - -- , """
+
+*******************************************************************************}
 unit SimpleCmdLineParser;
 
 {$TYPEINFO ON}
 
 interface
 
-{
--- Short command ---------------------------------------------------------------
-
-  - starts with a single command intro character
-  - only lower and upper case letters (a..z, A..Z)
-  - case sensitive (a is NOT the same as A)
-  - cannot be enclosed in quote chars
-  - can be compounded (several commands merged into one)
-  - can have parameters, first is separated by a white space, subsequent are
-    delimited by a delimiter character; in counpound commands, only the last
-    command can have parameters
-
-Examples:
-
-  -v                                  // simple command
-  -vbT                                // compound command (commands v, b and T)
-  -f file1.txt, "file 2.txt"          // simple with two parameters
-  -Tzf "file.dat"                     // compound, last command (f) with one parameter
-
--- Long command ----------------------------------------------------------------
-
-  - starts with two command intro characters
-  - only lower and upper case letters (a..z, A..Z), numbers (0..9), underscore
-    (_) and dash (-); cannot start with a dash
-  - case insensitive
-  - cannot contain white-space characters
-  - cannot be enclosed in quote chars
-  - cannot be compounded
-  - can have parameters, first parameter is separated by a white space,
-    subsequent are delimited by a delimiter character
-
-Examples:
-
-  --show_warnings                     // simple command
-  --input_file "file1.txt             // simple with one parameter
-  --files "file1.dat", "files2.dat"   // simple with two parameters
-}
-
-const
-  def_CommandIntroChar = '-';
-  def_QuoteChar        = '"';
-  def_DelimiterChar    = ',';
-
-  CHARS_SHORTCOMMAND = ['a'..'z','A'..'Z'];
-  CHARS_LONGCOMMAND  = ['a'..'z','A'..'Z','0'..'9','_','-'];
-  CHARS_WHITESPACE   = [#0..#32];
+{===============================================================================
+--------------------------------------------------------------------------------
+                                   TCLPLexer
+--------------------------------------------------------------------------------
+===============================================================================}
 
 type
   TCLPLexerTokenType = (ttShortCommand,ttLongCommand,ttDelimiter,ttGeneral);
@@ -65,8 +99,12 @@ type
     Count:  Integer;
   end;
 
-  TCLPLexerState    = (lsStart,lsTraverse,lsText,lsQuoted,lsShortCommand,lsLongCommand);
   TCLPLexerCharType = (lctWhiteSpace,lctCommandIntro,lctQuote,lctDelimiter,lctOther);
+  TCLPLexerState    = (lsStart,lsTraverse,lsText,lsQuoted,lsShortCommand,lsLongCommand);
+
+{===============================================================================
+    TCLPLexer - class declaration
+===============================================================================}
 
   TCLPLexer = class(TObject)
   private
@@ -107,6 +145,12 @@ type
     property Count: Integer read fTokens.Count;
   end;
 
+{===============================================================================
+--------------------------------------------------------------------------------
+                                   TCLPParser
+--------------------------------------------------------------------------------
+===============================================================================}
+
 type
   TCLPParamType = (ptShortCommand,ptLongCommand,ptGeneral);
 
@@ -122,6 +166,10 @@ type
   end;
 
   TCLPParserState = (psInitial,psCommand,psArgument,psGeneral);
+
+{===============================================================================
+    TCLPParser - class declaration
+===============================================================================}
 
   TCLPParser = class(TObject)
   private
@@ -146,8 +194,9 @@ type
     procedure Process_Argument; virtual;
     procedure Process_General; virtual;
   public
-    constructor Create; overload;
+    constructor CreateEmpty; overload;
     constructor Create(const CommandLine: String); overload;
+    constructor Create; overload;
     destructor Destroy; override;
     Function LowIndex: Integer; virtual;
     Function HighIndex: Integer; virtual;
@@ -178,6 +227,56 @@ implementation
 uses
   SysUtils;
 
+{===============================================================================
+    Auxiliary functions
+===============================================================================}
+
+{$If not Declared(CharInSet)}
+
+Function CharInSet(C: AnsiChar; const CharSet: TSysCharSet): Boolean; overload;
+begin
+Result := C in CharSet;
+end;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Function CharInSet(C: WideChar; const CharSet: TSysCharSet): Boolean; overload;
+begin
+If Ord(C) <= 255 then
+  Result := AnsiChar(C) in CharSet
+else
+  Result := False;
+end;
+
+{$IFEND}
+
+{===============================================================================
+    Implementation constants
+===============================================================================}
+
+const
+  def_CommandIntroChar = '-';
+  def_QuoteChar        = '"';
+  def_DelimiterChar    = ',';
+
+  CHARS_SHORTCOMMAND = ['a'..'z','A'..'Z'];
+  CHARS_LONGCOMMAND  = ['a'..'z','A'..'Z','0'..'9','_','-'];
+  CHARS_WHITESPACE   = [#0..#32];
+
+{===============================================================================
+--------------------------------------------------------------------------------
+                                   TCLPLexer
+--------------------------------------------------------------------------------
+===============================================================================}
+
+{===============================================================================
+    TCLPLexer - class implementation
+===============================================================================}
+
+{-------------------------------------------------------------------------------
+    TCLPLexer - private methods
+-------------------------------------------------------------------------------}
+
 Function TCLPLexer.GetToken(Index: Integer): TCLPLexerToken;
 begin
 If (Index >= Low(fTokens.Arr)) and (Index < fTokens.Count) then
@@ -186,7 +285,9 @@ else
   raise Exception.CreateFmt('TCLPLexer.GetToken: Index (%d) out of bounds.',[Index]);
 end;
 
-//==============================================================================
+{-------------------------------------------------------------------------------
+    TCLPLexer - protected methods
+-------------------------------------------------------------------------------}
 
 procedure TCLPLexer.AddToken(TokenType: TCLPLexerTokenType; const Str: String; Position: Integer);
 var
@@ -245,7 +346,7 @@ end;
 
 Function TCLPLexer.CurrCharType: TCLPLexerCharType;
 begin
-If fCommandLine[fPosition] in CHARS_WHITESPACE then
+If CharInSet(fCommandLine[fPosition],CHARS_WHITESPACE) then
   Result := lctWhiteSpace
 else If fCommandLine[fPosition] = fCommandIntroChar then
   Result := lctCommandIntro
@@ -372,7 +473,7 @@ procedure TCLPLexer.Process_ShortCommand;
 begin
 If CurrcharType = lctOther then
   begin
-    If not(fCommandLine[fPosition] in CHARS_SHORTCOMMAND) then
+    If not CharInSet(fCommandLine[fPosition],CHARS_SHORTCOMMAND) then
       begin
         If fTokenLength > 0 then
           AddToken(ttShortCommand,Copy(fCommandLine,fTokenStart,fTokenLength),fTokenStart);
@@ -391,7 +492,7 @@ begin
 begin
 If CurrcharType = lctOther then
   begin
-    If not(fCommandLine[fPosition] in CHARS_LONGCOMMAND) then
+    If not CharInSet(fCommandLine[fPosition],CHARS_LONGCOMMAND) then
       begin
         If fTokenLength > 0 then
           AddToken(ttLongCommand,Copy(fCommandLine,fTokenStart,fTokenLength),fTokenStart);
@@ -404,7 +505,9 @@ else Process_Common(ttLongCommand);
 end;
 end;
 
-//==============================================================================
+{-------------------------------------------------------------------------------
+    TCLPLexer - public methods
+-------------------------------------------------------------------------------}
 
 constructor TCLPLexer.Create;
 begin
@@ -453,7 +556,7 @@ If fTokenLength > 0 then
     lsQuoted:       AddToken(ttGeneral,Copy(fCommandLine,fTokenStart,fTokenLength),fTokenStart);
     lsShortCommand: AddToken(ttShortCommand,Copy(fCommandLine,fTokenStart,fTokenLength),fTokenStart);
     lsLongCommand:  AddToken(ttLongCommand,Copy(fCommandLine,fTokenStart,fTokenLength),fTokenStart);
-end
+  end;
 end;
 
 //------------------------------------------------------------------------------
@@ -465,8 +568,20 @@ SetLength(fTokens.Arr,0);
 fCommandLine := '';
 end;
 
-//==============================================================================
-//==============================================================================
+
+{===============================================================================
+--------------------------------------------------------------------------------
+                                   TCLPParser
+--------------------------------------------------------------------------------
+===============================================================================}
+
+{===============================================================================
+    TCLPParser - class implementation
+===============================================================================}
+
+{-------------------------------------------------------------------------------
+    TCLPParser - private methods
+-------------------------------------------------------------------------------}
 
 Function TCLPParser.GetParameter(Index: Integer): TCLPParameter;
 begin
@@ -476,7 +591,9 @@ else
   raise Exception.CreateFmt('TCLPParser.GetParameter: Index (%d) out of bounds.',[Index]);
 end;
 
-//==============================================================================
+{-------------------------------------------------------------------------------
+    TCLPParser - protected methods
+-------------------------------------------------------------------------------}
 
 procedure TCLPParser.AddParam(Data: TCLPParameter);
 begin
@@ -605,9 +722,11 @@ case fLexer[fTokenIndex].TokenType of
 end;
 end;
 
-//==============================================================================
+{-------------------------------------------------------------------------------
+    TCLPParser - public methods
+-------------------------------------------------------------------------------}
 
-constructor TCLPParser.Create;
+constructor TCLPParser.CreateEmpty;
 begin
 inherited;
 fCommandIntroChar := def_CommandIntroChar;
@@ -626,8 +745,15 @@ end;
 
 constructor TCLPParser.Create(const CommandLine: String);
 begin
-Create;
+CreateEmpty;
 Parse(CommandLine);
+end;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+constructor TCLPParser.Create;
+begin
+Create(System.CmdLine);
 end;
 
 //------------------------------------------------------------------------------
