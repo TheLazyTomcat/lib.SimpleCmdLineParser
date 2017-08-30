@@ -13,6 +13,9 @@
 
   Version 1.0
 
+  Dependencies:
+    StrRect - github.com/ncs-sniper/Lib.StrRect
+
 ===============================================================================}
 {*******************************************************************************
 
@@ -225,7 +228,7 @@ type
 implementation
 
 uses
-  SysUtils;
+  SysUtils, StrRect;
 
 {===============================================================================
     Auxiliary functions
@@ -753,7 +756,7 @@ end;
 
 constructor TCLPParser.Create;
 begin
-Create(System.CmdLine);
+Create(WinToStr(System.CmdLine));
 end;
 
 //------------------------------------------------------------------------------
