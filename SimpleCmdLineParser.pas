@@ -78,10 +78,6 @@ Examples:
 *******************************************************************************}
 unit SimpleCmdLineParser;
 
-{$IF not(Defined(WINDOWS) or Defined(MSWINDOWS))}
-  {$MESSAGE FATAL 'Unsupported operating system.'}
-{$IFEND}
-
 {$TYPEINFO ON}
 
 interface
