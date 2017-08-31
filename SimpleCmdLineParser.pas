@@ -9,9 +9,9 @@
 
   SimpleCmdLineParser
 
-  ©František Milt 2017-08-30
+  ©František Milt 2017-08-31
 
-  Version 1.0
+  Version 1.0.1
 
   Dependencies:
     StrRect - github.com/ncs-sniper/Lib.StrRect
@@ -88,72 +88,6 @@ interface
 
 {===============================================================================
 --------------------------------------------------------------------------------
-                                   TCLPLexer
---------------------------------------------------------------------------------
-===============================================================================}
-
-type
-  TCLPLexerTokenType = (ttShortCommand,ttLongCommand,ttDelimiter,ttGeneral);
-
-  TCLPLexerToken = record
-    TokenType:  TCLPLexerTokenType;
-    Str:        String;
-    Position:   Integer;
-  end;
-
-  TCLPLexerTokens = record
-    Arr:    array of TCLPLexerToken;
-    Count:  Integer;
-  end;
-
-  TCLPLexerCharType = (lctWhiteSpace,lctCommandIntro,lctQuote,lctDelimiter,lctOther);
-  TCLPLexerState    = (lsStart,lsTraverse,lsText,lsQuoted,lsShortCommand,lsLongCommand);
-
-{===============================================================================
-    TCLPLexer - class declaration
-===============================================================================}
-
-  TCLPLexer = class(TObject)
-  private
-    fCommandIntroChar:  Char;
-    fQuoteChar:         Char;
-    fDelimiterChar:     Char;
-    fCommandLine:       String;
-    fTokens:            TCLPLexerTokens;
-    // tokenization variables
-    fState:             TCLPLexerState;
-    fPosition:          Integer;
-    fTokenStart:        Integer;
-    fTokenLength:       Integer;
-    Function GetToken(Index: Integer): TCLPLexerToken;
-  protected
-    procedure AddToken(TokenType: TCLPLexerTokenType; const Str: String; Position: Integer); virtual;
-    // tokenization
-    Function LookAhead(aChar: Char): Boolean; virtual;
-    Function CurrCharType: TCLPLexerCharType; virtual;
-    procedure Process_Common(TokenType: TCLPLexerTokenType); virtual;
-    procedure Process_Start; virtual;
-    procedure Process_Traverse; virtual;
-    procedure Process_Text; virtual;
-    procedure Process_Quoted; virtual;
-    procedure Process_ShortCommand; virtual;
-    procedure Process_LongCommand; virtual;
-  public
-    constructor Create;
-    destructor Destroy; override;
-    procedure Analyze(const CommandLine: String); virtual;
-    procedure Clear; virtual;
-    property Tokens[Index: Integer]: TCLPLexerToken read GetToken; default;
-  published
-    property CommandIntroChar: Char read fCommandIntroChar write fCommandIntroChar;
-    property QuoteChar: Char read fQuoteChar write fQuoteChar;
-    property DelimiterChar: Char read fDelimiterChar write fDelimiterChar;
-    property CommandLine: String read fCommandLine;
-    property Count: Integer read fTokens.Count;
-  end;
-
-{===============================================================================
---------------------------------------------------------------------------------
                                    TCLPParser
 --------------------------------------------------------------------------------
 ===============================================================================}
@@ -187,7 +121,7 @@ type
     fImagePath:         String;
     fParameters:        TCLPParameters;
     // parsing variables
-    fLexer:             TCLPLexer;
+    fLexer:             TObject;
     fState:             TCLPParserState;
     fTokenIndex:        Integer;
     fCurrentParam:      TCLPParameter;
@@ -275,6 +209,66 @@ const
                                    TCLPLexer
 --------------------------------------------------------------------------------
 ===============================================================================}
+
+type
+  TCLPLexerTokenType = (ttShortCommand,ttLongCommand,ttDelimiter,ttGeneral);
+
+  TCLPLexerToken = record
+    TokenType:  TCLPLexerTokenType;
+    Str:        String;
+    Position:   Integer;
+  end;
+
+  TCLPLexerTokens = record
+    Arr:    array of TCLPLexerToken;
+    Count:  Integer;
+  end;
+
+  TCLPLexerCharType = (lctWhiteSpace,lctCommandIntro,lctQuote,lctDelimiter,lctOther);
+  TCLPLexerState    = (lsStart,lsTraverse,lsText,lsQuoted,lsShortCommand,lsLongCommand);
+
+{===============================================================================
+    TCLPLexer - class declaration
+===============================================================================}
+
+  TCLPLexer = class(TObject)
+  private
+    fCommandIntroChar:  Char;
+    fQuoteChar:         Char;
+    fDelimiterChar:     Char;
+    fCommandLine:       String;
+    fTokens:            TCLPLexerTokens;
+    // tokenization variables
+    fState:             TCLPLexerState;
+    fPosition:          Integer;
+    fTokenStart:        Integer;
+    fTokenLength:       Integer;
+    Function GetToken(Index: Integer): TCLPLexerToken;
+  protected
+    procedure AddToken(TokenType: TCLPLexerTokenType; const Str: String; Position: Integer); virtual;
+    // tokenization
+    Function LookAhead(aChar: Char): Boolean; virtual;
+    Function CurrCharType: TCLPLexerCharType; virtual;
+    procedure Process_Common(TokenType: TCLPLexerTokenType); virtual;
+    procedure Process_Start; virtual;
+    procedure Process_Traverse; virtual;
+    procedure Process_Text; virtual;
+    procedure Process_Quoted; virtual;
+    procedure Process_ShortCommand; virtual;
+    procedure Process_LongCommand; virtual;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure Analyze(const CommandLine: String); virtual;
+    procedure Clear; virtual;
+    property Tokens[Index: Integer]: TCLPLexerToken read GetToken; default;
+  published
+    property CommandIntroChar: Char read fCommandIntroChar write fCommandIntroChar;
+    property QuoteChar: Char read fQuoteChar write fQuoteChar;
+    property DelimiterChar: Char read fDelimiterChar write fDelimiterChar;
+    property CommandLine: String read fCommandLine;
+    property Count: Integer read fTokens.Count;
+  end;
 
 {===============================================================================
     TCLPLexer - class implementation
@@ -626,23 +620,23 @@ end;
 
 procedure TCLPParser.Process_Initial;
 begin
-case fLexer[fTokenIndex].TokenType of
+case TCLPLexer(fLexer)[fTokenIndex].TokenType of
   ttShortCommand: begin
                     fCurrentParam.ParamType := ptShortCommand;
-                    fCurrentParam.Str := fLexer[fTokenIndex].Str;
+                    fCurrentParam.Str := TCLPLexer(fLexer)[fTokenIndex].Str;
                     SetLength(fCurrentParam.Arguments,0);
                     fState := psCommand;
                   end;
   ttLongCommand:  begin
                     fCurrentParam.ParamType := ptLongCommand;
-                    fCurrentParam.Str := fLexer[fTokenIndex].Str;
+                    fCurrentParam.Str := TCLPLexer(fLexer)[fTokenIndex].Str;
                     SetLength(fCurrentParam.Arguments,0);
                     fState := psCommand;
                   end;
   ttDelimiter:    fState := psGeneral;
   ttGeneral:      begin
-                    fImagePath := fLexer[fTokenIndex].Str;
-                    AddParam(ptGeneral,fLexer[fTokenIndex].Str);
+                    fImagePath := TCLPLexer(fLexer)[fTokenIndex].Str;
+                    AddParam(ptGeneral,TCLPLexer(fLexer)[fTokenIndex].Str);
                     fState := psGeneral;
                   end;
 end;
@@ -652,25 +646,25 @@ end;
 
 procedure TCLPParser.Process_Command;
 begin
-case fLexer[fTokenIndex].TokenType of
+case TCLPLexer(fLexer)[fTokenIndex].TokenType of
   ttShortCommand: begin
                     AddParam(fCurrentParam);
                     fCurrentParam.ParamType := ptShortCommand;
-                    fCurrentParam.Str := fLexer[fTokenIndex].Str;
+                    fCurrentParam.Str := TCLPLexer(fLexer)[fTokenIndex].Str;
                     SetLength(fCurrentParam.Arguments,0);
                     fState := psCommand;
                   end;
   ttLongCommand:  begin
                     AddParam(fCurrentParam);
                     fCurrentParam.ParamType := ptLongCommand;
-                    fCurrentParam.Str := fLexer[fTokenIndex].Str;
+                    fCurrentParam.Str := TCLPLexer(fLexer)[fTokenIndex].Str;
                     SetLength(fCurrentParam.Arguments,0);
                     fState := psCommand;
                   end;
   ttDelimiter:    fState := psGeneral;
   ttGeneral:      begin
                     SetLength(fCurrentParam.Arguments,Length(fCurrentParam.Arguments) + 1);
-                    fCurrentParam.Arguments[High(fCurrentParam.Arguments)] := fLexer[fTokenIndex].Str;
+                    fCurrentParam.Arguments[High(fCurrentParam.Arguments)] := TCLPLexer(fLexer)[fTokenIndex].Str;
                     fState := psArgument;
                   end;
 end;
@@ -680,25 +674,25 @@ end;
 
 procedure TCLPParser.Process_Argument;
 begin
-case fLexer[fTokenIndex].TokenType of
+case TCLPLexer(fLexer)[fTokenIndex].TokenType of
   ttShortCommand: begin
                     AddParam(fCurrentParam);
                     fCurrentParam.ParamType := ptShortCommand;
-                    fCurrentParam.Str := fLexer[fTokenIndex].Str;
+                    fCurrentParam.Str := TCLPLexer(fLexer)[fTokenIndex].Str;
                     SetLength(fCurrentParam.Arguments,0);
                     fState := psCommand;
                   end;
   ttLongCommand:  begin
                     AddParam(fCurrentParam);
                     fCurrentParam.ParamType := ptLongCommand;
-                    fCurrentParam.Str := fLexer[fTokenIndex].Str;
+                    fCurrentParam.Str := TCLPLexer(fLexer)[fTokenIndex].Str;
                     SetLength(fCurrentParam.Arguments,0);
                     fState := psCommand;
                   end;
   ttDelimiter:    fState := psCommand;
   ttGeneral:      begin
                     AddParam(fCurrentParam);
-                    AddParam(ptGeneral,fLexer[fTokenIndex].Str);
+                    AddParam(ptGeneral,TCLPLexer(fLexer)[fTokenIndex].Str);
                     fState := psGeneral;
                   end;
 end;
@@ -708,22 +702,22 @@ end;
 
 procedure TCLPParser.Process_General;
 begin
-case fLexer[fTokenIndex].TokenType of
+case TCLPLexer(fLexer)[fTokenIndex].TokenType of
   ttShortCommand: begin
                     fCurrentParam.ParamType := ptShortCommand;
-                    fCurrentParam.Str := fLexer[fTokenIndex].Str;
+                    fCurrentParam.Str := TCLPLexer(fLexer)[fTokenIndex].Str;
                     SetLength(fCurrentParam.Arguments,0);
                     fState := psCommand;
                   end;
   ttLongCommand:  begin
                     fCurrentParam.ParamType := ptLongCommand;
-                    fCurrentParam.Str := fLexer[fTokenIndex].Str;
+                    fCurrentParam.Str := TCLPLexer(fLexer)[fTokenIndex].Str;
                     SetLength(fCurrentParam.Arguments,0);
                     fState := psCommand;
                   end;
   ttDelimiter:    fState := psGeneral;
   ttGeneral:      begin
-                    AddParam(ptGeneral,fLexer[fTokenIndex].Str);
+                    AddParam(ptGeneral,TCLPLexer(fLexer)[fTokenIndex].Str);
                     fState := psGeneral;
                   end;
 end;
@@ -907,7 +901,7 @@ fCommandLine := '';
 fImagePath := '';
 fParameters.Count := 0;
 SetLength(fParameters.Arr,0);
-fLexer.Clear;
+TCLPLexer(fLexer).Clear;
 end;
 
 //------------------------------------------------------------------------------
@@ -924,12 +918,12 @@ procedure TCLPParser.ReParse;
 begin
 fImagePath := '';
 fParameters.Count := 0;
-fLexer.CommandIntroChar := fCommandIntroChar;
-fLexer.QuoteChar := fQuoteChar;
-fLexer.DelimiterChar := fDelimiterChar;
-fLexer.Analyze(fCommandLine);
+TCLPLexer(fLexer).CommandIntroChar := fCommandIntroChar;
+TCLPLexer(fLexer).QuoteChar := fQuoteChar;
+TCLPLexer(fLexer).DelimiterChar := fDelimiterChar;
+TCLPLexer(fLexer).Analyze(fCommandLine);
 fTokenIndex := 0;
-while fTokenIndex <= Pred(fLexer.Count) do
+while fTokenIndex <= Pred(TCLPLexer(fLexer).Count) do
   begin
     case fState of
       psInitial:  Process_Initial;
