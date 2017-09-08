@@ -59,7 +59,7 @@ Examples:
 Examples:
 
   --show_warnings                     // simple command
-  --input_file "file1.txt             // simple with one argument
+  --input_file "file1.txt"            // simple with one argument
   --files "file1.dat", "files2.dat"   // simple with two arguments
 
 -- General ---------------------------------------------------------------------
@@ -131,7 +131,7 @@ type
     procedure Process_Argument; virtual;
     procedure Process_General; virtual;
   public
-    constructor CreateEmpty; overload;
+    constructor CreateEmpty;
     constructor Create(const CommandLine: String); overload;
     constructor Create; overload;
     destructor Destroy; override;
