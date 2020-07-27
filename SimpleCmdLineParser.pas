@@ -81,7 +81,7 @@
         "quoted text with ""whitespaces"" and quote chars"
         "special characters: - -- , """   
 
-  Version 1.2 (2020-07-27)
+  Version 1.2.1 (2020-07-27)
 
   Last change 2020-07-27
 
@@ -438,7 +438,11 @@ begin
 If Value >= 0 then
   begin
     If Value <> Length(fTokens) then
-      SetLength(fTokens,Value);
+      begin
+        SetLength(fTokens,Value);
+        If Value < fCount then
+          fCount := Value
+      end;
   end
 else raise ESCLPInvalidValue.CreateFmt('TSCLPLexer.SetCapacity: Invalid capacity (%d).',[Value]);
 end;
@@ -814,7 +818,11 @@ begin
 If Value >= 0 then
   begin
     If Value <> Length(fParameters) then
-      SetLength(fParameters,Value);
+      begin
+        SetLength(fParameters,Value);
+        If Value < fCount then
+          fCount := Value;
+      end;
   end
 else raise ESCLPInvalidValue.CreateFmt('TSCLPParser.SetCapacity: Invalid capacity (%d).',[Value]);
 end;
