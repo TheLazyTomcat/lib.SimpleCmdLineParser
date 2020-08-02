@@ -83,7 +83,7 @@
 
   Version 1.2.1 (2020-07-27)
 
-  Last change 2020-07-27
+  Last change 2020-08-02
 
   ©2017-2020 František Milt
 
@@ -124,6 +124,7 @@ unit SimpleCmdLineParser;
   {$DEFINE FPC_DisableWarns}
   {$MACRO ON}
 {$ENDIF}
+{$H+}
 
 interface
 
