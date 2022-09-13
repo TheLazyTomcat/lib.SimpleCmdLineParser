@@ -83,9 +83,9 @@
 
   Version 1.2.1 (2020-07-27)
 
-  Last change 2020-08-02
+  Last change 2022-09-13
 
-  ©2017-2020 František Milt
+  ©2017-2022 František Milt
 
   Contacts:
     František Milt: frantisek.milt@gmail.com
@@ -132,6 +132,9 @@ uses
   SysUtils,
   AuxClasses;
 
+{===============================================================================
+    Library-specific exceptions
+===============================================================================}
 type
   ESCLPException = class(Exception);
 
@@ -144,7 +147,6 @@ type
                                   TSCLPParser                                  
 --------------------------------------------------------------------------------
 ===============================================================================}
-
 type
   TSCLPParamType = (ptShortCommand,ptLongCommand,ptGeneral);
 
@@ -161,7 +163,7 @@ type
 ===============================================================================}
 type
   TSCLPParser = class(TCustomListObject)
-  private
+  protected
     // lexing settings
     fCommandIntroChar:  Char;
     fQuoteChar:         Char;
@@ -177,8 +179,7 @@ type
     fState:             TSCLPParserState;
     fTokenIndex:        Integer;
     fCurrentParam:      TSCLPParameter;
-    Function GetParameter(Index: Integer): TSCLPParameter;
-  protected
+    Function GetParameter(Index: Integer): TSCLPParameter; virtual;
     // list methods
     Function GetCapacity: Integer; override;
     procedure SetCapacity(Value: Integer); override;
@@ -325,7 +326,6 @@ end;
                                    TSCLPLexer
 --------------------------------------------------------------------------------
 ===============================================================================}
-
 type
   TSCLPLexerTokenType = (lttShortCommand,lttLongCommand,lttDelimiter,
                          lttTerminator,lttGeneral);
@@ -357,7 +357,7 @@ const
 ===============================================================================}
 type
   TSCLPLexer = class(TCustomListObject)
-  private
+  protected
     // settings
     fCommandIntroChar:  Char;
     fQuoteChar:         Char;
@@ -372,8 +372,7 @@ type
     fPosition:          Integer;
     fTokenStart:        Integer;
     fTokenLength:       Integer;
-    Function GetToken(Index: Integer): TSCLPLexerToken;
-  protected
+    Function GetToken(Index: Integer): TSCLPLexerToken; virtual;
     // inherited list methods
     Function GetCapacity: Integer; override;
     procedure SetCapacity(Value: Integer); override;
@@ -412,7 +411,7 @@ type
     TSCLPLexer - class implementation
 ===============================================================================}
 {-------------------------------------------------------------------------------
-    TSCLPLexer - private methods
+    TSCLPLexer - protected methods
 -------------------------------------------------------------------------------}
 
 Function TSCLPLexer.GetToken(Index: Integer): TSCLPLexerToken;
@@ -423,9 +422,7 @@ else
   raise ESCLPIndexOutOfBounds.CreateFmt('TSCLPLexer.GetToken: Index (%d) out of bounds.',[Index]);
 end;
 
-{-------------------------------------------------------------------------------
-    TSCLPLexer - protected methods
--------------------------------------------------------------------------------}
+//------------------------------------------------------------------------------
 
 Function TSCLPLexer.GetCapacity: Integer;
 begin
@@ -786,13 +783,11 @@ end;
                                   TSCLPParser                                  
 --------------------------------------------------------------------------------
 ===============================================================================}
-
 {===============================================================================
     TSCLPParser - class implementation
 ===============================================================================}
-
 {-------------------------------------------------------------------------------
-    TSCLPParser - private methods
+    TSCLPParser - protected methods
 -------------------------------------------------------------------------------}
 
 Function TSCLPParser.GetParameter(Index: Integer): TSCLPParameter;
@@ -803,9 +798,7 @@ else
   raise ESCLPIndexOutOfBounds.CreateFmt('TSCLPParser.GetParameter: Index (%d) out of bounds.',[Index]);
 end;
 
-{-------------------------------------------------------------------------------
-    TSCLPParser - protected methods
--------------------------------------------------------------------------------}
+//------------------------------------------------------------------------------
 
 Function TSCLPParser.GetCapacity: Integer;
 begin
