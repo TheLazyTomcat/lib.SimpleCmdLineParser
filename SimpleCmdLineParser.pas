@@ -83,7 +83,7 @@
 
   Version 1.2.1 (2020-07-27)
 
-  Last change 2022-09-13
+  Last change 2022-09-24
 
   ©2017-2022 František Milt
 
@@ -120,7 +120,8 @@ unit SimpleCmdLineParser;
 {$IFEND}
 
 {$IFDEF FPC}
-  {$MODE Delphi}
+  {$MODE ObjFPC}
+  {$MODESWITCH DuplicateLocals+}
   {$DEFINE FPC_DisableWarns}
   {$MACRO ON}
 {$ENDIF}
