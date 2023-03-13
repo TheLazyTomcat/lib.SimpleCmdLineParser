@@ -9,19 +9,18 @@
 
   Simple Command Line Parser
 
-    In current implementation, three basic objects are parsed from the command
-    line - short command, long command and general object.
+    Provides a class (TSCLPParser) that can parse and split a command line
+    string into individial commands, each possibly with arguments, and other
+    textual parameters.
 
     Special characters
 
       command introduction character - dash (-)
-      termination character          - semicolon (;)
-      arguments delimiter character  - comma (,)
-      quotation character            - double quotes (")
+      escape character               - backslash (\)
+      quotation characters           - double quotes (") and single quotes (')
 
-      WARNING - in linux, all double quotes are removed from the command line
-                by the system, to ensure they are preserved for parsing,
-                prepend each of them with a backslash (\)
+    In current implementation, three basic objects are parsed from the command
+    line - short command, long command and general object.
 
     Short command
 
@@ -31,15 +30,13 @@
       - case sensitive (a is NOT the same as A)
       - cannot be enclosed in quote chars
       - can be compounded (several short commands merged into one block)
-      - can have arguments, first is separated by a white space, subsequent are
-        delimited by a delimiter character (in counpound commands, only the
-        last command can have an argument)
+      - can have arguments delimited by a white space
 
       Short command examples:
 
         -v                             simple short command
         -vbT                           compound command (commands v, b and T)
-        -f file1.txt, "file 2.txt"     simple with two arguments
+        -f file1.txt "file 2.txt"      simple with two arguments
         -Tzf "file.dat"                compound, last command (f) with one argument
 
     Long command
@@ -50,42 +47,77 @@
         underscore (_) and dash (-)
       - case insensitive (FOO is the same as Foo)
       - cannot start with a dash
-      - cannot contain white-space characters
       - cannot be enclosed in quote chars
       - cannot be compounded
-      - can have arguments, first argument is separated by a white space,
-        subsequent are delimited by a delimiter character
+      - can have arguments delimited by a white space
 
       Long command examples:
 
         --show_warnings                       simple long command
-        --input_file "file1.txt"              simple with one argument
-        --files "file1.dat", "files2.dat"     simple with two arguments
+        --input_file "file1.txt"              long command with one argument
+        --files "file1.dat" "files2.dat"      long command with two arguments
 
     General object
 
-      - any text that is not a command, delimiter, dash or termination char
-      - cannot contain whitespaces, delimiter, quotation or command intro
-        character...
-      - ...unless it is enclosed in quote chars
-      - to add one quote char, escape it with another one
-      - if general object has to appear after a command (normally, it would be
-        parsed as a command argument), add command termination character after
-        the command and before the text
+      - any text that is not a command
+      - if it contains white spaces, it must be enclosed in quotes (as objects
+        are delimited by white spaces) - both single (') and double (") quotes
+        are allowed (but they cannot be mixed)
+      - backslash is an escape character, meaning anything following it is
+        preserved as is (including quotes or another escape char), while the
+        escaping character itself is removed
+      - any general object appearing after a command is also added as an
+        argument of that command
       - if first parsed object from a command line is a general object, it is
         assumed to be the image path
 
       General object examples:
 
         this_is_simple_general_text
-        "quoted text with ""whitespaces"" and quote chars"
-        "special characters: - -- , """   
+        "quoted text with \"whitespaces\" and quote chars"
+        "special characters: - -- \\ \" \'"
 
-  Version 1.2.1 (2020-07-27)
 
-  Last change 2022-09-24
+    Now let's have some example command lines and how they will be parsed.
+    First a Windows-style example:
 
-  ©2017-2022 František Milt
+      "c:\test.exe" -sab 1 15 9 --test "output file.txt"
+
+          c:\test.exe       general object (image path)
+          s                 short command
+          a                 short command
+          b                 short command with three arguments:
+                                1
+                                15
+                                9
+          1                 general object
+          15                general object
+          9                 general object
+          test              long command with one argument:
+                                output file.txt
+          output file.txt   general object
+
+    And now something more Linux-like:
+
+      .\test --test -u 999 0 \-t 'string'"'"'string'
+
+          .\test            general object (image path)
+          test              long command
+          u                 short command with four arguments:
+                                999
+                                0
+                                -t
+                                string'string
+          999               general object
+          0                 general object
+          -t                general object
+          string'string     general object
+
+  Version 2.0 (2023-03-13)
+
+  Last change 2023-03-13
+
+  ©2017-2023 František Milt
 
   Contacts:
     František Milt: frantisek.milt@gmail.com
@@ -1035,61 +1067,81 @@ end;
   Function PreprocessArgument(const Arg: String): String;
   var
     i,ResPos:   TStrOff;
-    CanBeSCmd:  Boolean;
-    CanBeLCmd:  Boolean;
+    CanBeCmd:   Boolean;
     AddQuote:   Boolean;
     EscapeCnt:  Integer;
   begin
-    {$message 'rework'}
+  {
+    - double all escape characters (backslash)
+    - enclose non-command strings to single quotes when necessary (when it
+      contains white space)
+    - prepend all quotes (both single and double) with escape character
+    - if string starts with a command intro char and is not a command, prepend
+      first command intro char with escape character
+  }
     If Length(Arg) > 0 then
       begin
-        CanBeSCmd := Arg[1] = SCLP_CHAR_CMDINTRO;
-        If Length(Arg) > 1 then
-          CanBeLCmd := Arg[2] = SCLP_CHAR_CMDINTRO
-        else
-          CanBeLCmd := False;
+        // first check whether the argument can be a command
+        If (Length(Arg) > 1) and (Arg[1] = SCLP_CHAR_CMDINTRO) then
+          begin
+            CanBeCmd := True;
+            // can it be a long command?
+            If (Length(Arg) > 2) and (Arg[2] = SCLP_CHAR_CMDINTRO) then
+              begin
+                If Arg[3] <> SCLP_CHAR_CMDINTRO then
+                  begin
+                    For i := 3 to Length(Arg) do
+                      If not CharInSet(Arg[i],SCLP_CHARS_COMMANDLONG) then
+                        begin
+                          CanBeCmd := False;
+                          Break{For i};
+                        end;
+                  end
+                else CanBeCmd := False;
+              end
+            else
+              begin
+                For i := 2 to Length(Arg) do
+                  If not CharInSet(Arg[i],SCLP_CHARS_COMMANDSHORT) then
+                    begin
+                      CanBeCmd := False;
+                      Break{For i};
+                    end;
+              end;
+          end
+        else CanBeCmd := False;
+        // count escapements and look whether to add quotes
         AddQuote := False;
         EscapeCnt := 0;
-        // scan the argument string
-        For i := 1 to Length(Arg) do
-          begin
-            If CharInSet(Arg[i],SCLP_CHARS_WHITESPACE) then
-              begin
-                CanBeSCmd := False;
-                CanBeLCmd := False;
-                AddQuote := True;
-              end
-            else If not CharInSet(Arg[i],SCLP_CHARS_SHORTCOMMAND) then
-              begin
-                CanBeSCmd := False;
-                CanBeLCmd := CharInSet(Arg[i],SCLP_CHARS_LONGCOMMAND);
-              end
-            else If Arg[i] = SCLP_CHAR_QUOTEDOUBLE then
-              Inc(EscapeCnt);
-          end;
-      {
-        If the string starts with command intro char, but cannot be a command,
-        then prepend it with an escape char.
-      }
-        If (Arg[1] = SCLP_CHAR_CMDINTRO) and not(CanBeSCmd or CanBeLCmd) then
+        // if it can be a command, then there is nothing to be escaped or quoted
+        If not CanBeCmd then
+          For i := 1 to Length(Arg) do
+            begin
+              If CharInSet(Arg[i],SCLP_CHARS_WHITESPACE) then
+                AddQuote := True
+              else If CharInSet(Arg[i],[SCLP_CHAR_ESCAPE,SCLP_CHAR_QUOTESINGLE,SCLP_CHAR_QUOTEDOUBLE]) then
+                Inc(EscapeCnt);
+            end;
+        If (Arg[1] = SCLP_CHAR_CMDINTRO) and not CanBeCmd then
           Inc(EscapeCnt);
-        // build the resulting string
+        // prepare result
         SetLength(Result,Length(Arg) + EscapeCnt + IfThen(AddQuote,2,0));
+        // construct result
         If AddQuote then
           begin
-            Result[1] := SCLP_CHAR_QUOTEDOUBLE;
-            Result[Length(Result)] := SCLP_CHAR_QUOTEDOUBLE;
+            Result[1] := SCLP_CHAR_QUOTESINGLE;
+            Result[Length(Result)] := SCLP_CHAR_QUOTESINGLE;
             ResPos := 2;
           end
         else ResPos := 1;
-        If (Arg[1] = SCLP_CHAR_CMDINTRO) and not(CanBeSCmd or CanBeLCmd) then
+        If (Arg[1] = SCLP_CHAR_CMDINTRO) and not CanBeCmd then
           begin
             Result[ResPos] := SCLP_CHAR_ESCAPE;
             Inc(ResPos);
           end;
         For i := 1 to Length(Arg) do
           begin
-            If Arg[i] = SCLP_CHAR_QUOTEDOUBLE then
+            If CharInSet(Arg[i],[SCLP_CHAR_ESCAPE,SCLP_CHAR_QUOTESINGLE,SCLP_CHAR_QUOTEDOUBLE]) then
               begin
                 Result[ResPos] := SCLP_CHAR_ESCAPE;
                 Inc(ResPos);
@@ -1098,7 +1150,7 @@ end;
             Inc(ResPos);
           end;
       end
-    else Result := StringOfChar(SCLP_CHAR_QUOTEDOUBLE,2);
+    else Result := StringOfChar(SCLP_CHAR_QUOTESINGLE,2);
   end;
 
 var
